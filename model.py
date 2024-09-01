@@ -40,3 +40,18 @@ class PositionalEmbedding(nn.Module):
         x = x + self.positionalEncoding[:, :x.shape[1], :]
         return self.dropout(x)
         
+        
+class LayerNormalization(nn.Module):
+    def __init__(self, eps: float = 10**-6) -> None:
+        super().__init__()
+        self.eps = eps
+        self.alpha = nn.Parameter(torch.ones(1))
+        self.bias = nn.Parameters(torch.zeros(1))
+        
+    def forward(self, x):
+        mean = x.mean(dim = -1, keepdim=True)
+        std = x.std(dim=-1, keepdim=True)
+        return self.alpha * (x-mean)/(std*self.eps)*self.bias
+        
+        
+        
