@@ -102,7 +102,10 @@ class MultiheadAttentionBlock(nn.Module):
         
         # Compute attention weights and apply dropout
         attentionWeights = torch.softmax(attentionScores, dim=-1)
-        attentionWeights = dropout(attentionWeights)
+        
+        if dropout is not None:
+            attentionWeights = dropout(attentionWeights)
+            
         # Calculate the output as weighted sum of values
         output = attentionWeights @ value
         
