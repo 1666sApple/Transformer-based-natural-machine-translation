@@ -40,11 +40,11 @@ class LayerNormalization(nn.Module):
         return self.alpha * (x - mean) / (std + self.eps) + self.bias
 
 class FeedForwardBlock(nn.Module):
-    def __init__(self, dimModel: int, d_ff: int, dropout: float) -> None:
+    def __init__(self, dimModel: int, feedForwardDim: int, dropout: float) -> None:
         super().__init__()
-        self.linear1 = nn.Linear(dimModel, d_ff)
+        self.linear1 = nn.Linear(dimModel, feedForwardDim)
         self.dropout = nn.Dropout(dropout)
-        self.linear2 = nn.Linear(d_ff, dimModel)
+        self.linear2 = nn.Linear(feedForwardDim, dimModel)
         
     def forward(self, x):
         return self.linear2(self.dropout(torch.relu(self.linear1(x))))
@@ -149,3 +149,61 @@ class ProjectionLayer(nn.Module):
     def forward(self, x) -> None:
         return self.projection(x)
         
+class Transformer(nn.Module):
+    def __init__(self, encoder: Encoder, decoder: Decoder, srcEmbed: InputEmbedding, targetEmbed: InputEmbedding, srcPOS: PositionalEmbedding, targetPOS: PositionalEmbedding, projectionLayer: ProjectionLayer) -> None:
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.srcEmbed = srcEmbed
+        self.targetEmbed = targetEmbed
+        self.srcPOS = srcPOS
+        self.targetPOS = targetPOS
+        self.projectLayer = projectionLayer
+    
+    def encode(self, src, srcMask):
+        src = self.srcEmbed(src)
+        src = self.srcPOS(src)
+        return self.encoder(src, srcMask)
+        
+    def decode(self, encoderOutput: torch.Tensor, srcMask: torch.Tensor, target: torch.Tensor, targetMask: torch.Tensor):
+        target = self.targetEmbed(target)
+        target = self.targetPOS(target)
+        return self.decoder(target, encoderOutput, srcMask, targetMask)
+        
+    def project(self, x):
+        return self.projectLayer(x)
+        
+def buildTransformer(srcVocabSize: int, targetVocabSize: int, srcSeqLen: int, targetSeqLen: int, dimModel: int = 512, numLayers: int = 6, numHeads: int = 8, dropout: float = 0.1, feedForwardDim: int = 2048) -> Transformer:
+    srcEmbed = InputEmbedding(dimModel, srcVocabSize)
+    targetEmbed = InputEmbedding(dimModel, targetVocabSize)
+    
+    srcPOS = PositionalEmbedding(dimModel, srcSeqLen, dropout)
+    targetPOS = PositionalEmbedding(dimModel, targetSeqLen, dropout)
+    
+    encoderBlocks = []
+    for _ in range(numLayers):
+        encoderSelfAttentionBlock = MultiheadAttentionBlock(dimModel, numHeads, dropout)
+        feedForwardBlock = FeedForwardBlock(dimModel, feedForwardDim, dropout)
+        encoderBlock = EncoderBlock(dimModel, encoderSelfAttentionBlock, feedForwardBlock, dropout)
+        encoderBlocks.append(encoderBlock)
+    
+    decoderBlocks = []
+    for _ in range(numLayers):
+        decoderSelfAttentionBlock = MultiheadAttentionBlock(dimModel, numHeads, dropout)
+        decoderCrossAttentionBlock = MultiheadAttentionBlock(dimModel, numHeads, dropout)
+        feedForwardBlock = FeedForwardBlock(dimModel, feedForwardDim, dropout)
+        decoderBlock = DecoderBlock(dimModel, decoderSelfAttentionBlock, decoderCrossAttentionBlock, feedForwardBlock, dropout)
+        decoderBlocks.append(decoderBlock)
+    
+    encoder = Encoder(dimModel, nn.ModuleList(encoderBlocks))
+    decoder = Decoder(dimModel, nn.ModuleList(decoderBlocks))
+    
+    projectionLayer = ProjectionLayer(dimModel, targetVocabSize)
+    
+    transformer = Transformer(encoder, decoder, srcEmbed, targetEmbed, srcPOS, targetPOS, projectionLayer)
+
+    for parameter in transformer.parameters():
+        if parameter.dim() > 1: 
+            nn.init.xavier_uniform_(parameter)
+
+    return transformer
