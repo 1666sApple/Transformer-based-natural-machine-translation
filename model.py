@@ -140,3 +140,12 @@ class Decoder(nn.Module):
         for layer in self.layers:
             x = layer(x, encoderOutput, srcMask, targetMask)
         return self.norm(x)
+
+class ProjectionLayer(nn.Module):
+    def __init__(self, dimModel, vocabSize) -> None:
+        super().__init__()
+        self.projection = nn.Linear(dimModel, vocabSize)
+        
+    def forward(self, x) -> None:
+        return self.projection(x)
+        
