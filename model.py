@@ -116,3 +116,27 @@ class Encoder(nn.Module):
             x = layer(x, mask)
         return self.norm(x)
 
+class DecoderBlock(nn.Module):
+    def __init__(self, features: int, selfAttentionBlock: MultiheadAttentionBlock, crossAttentionBlock: MultiheadAttentionBlock, feedForwardBlock: FeedForwardBlock, dropout: float) -> None:
+        super().__init__()
+        self.selfAttentionBlock = selfAttentionBlock
+        self.crossAttentionBlock = crossAttentionBlock
+        self.feedForwardBlock = feedForwardBlock
+        self.residualConnection = nn.ModuleList([ResidualConnection(features, dropout) for _ in range(3)])
+        
+    def forward(self, x, encoderOutput, srcMask, targetMask):
+        x = self.residualConnection[0](x, lambda x: self.selfAttentionBlock(x, x, x, targetMask))
+        x = self.residualConnection[1](x, lambda x: self.crossAttentionBlock(x, encoderOutput, encoderOutput, srcMask))
+        x = self.residualConnection[2](x, self.feedForwardBlock)
+        return x
+
+class Decoder(nn.Module):
+    def __init__(self, features: int, layers: nn.ModuleList) -> None:
+        super().__init__()
+        self.layers = layers
+        self.norm = LayerNormalization(features)
+        
+    def forward(self, x, encoderOutput, srcMask, targetMask):
+        for layer in self.layers:
+            x = layer(x, encoderOutput, srcMask, targetMask)
+        return self.norm(x)
