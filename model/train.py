@@ -25,3 +25,29 @@ def getDataset(config):
     trainSize = int(0.8 * len(ds_raw))
     valSize = int(0.1 * len(ds_raw))
     testSize = len(ds_raw) - (trainSize + valSize)
+    
+    train = ds_raw[:trainSize]
+    val = ds_raw[trainSize:trainSize+valSize]
+    test = ds_raw[trainSize+valSize:]
+    
+    ds_train = BilingualDataset(train, srcTokenizer, targetTokenizer, config['srcLang'], config['targetLang'], config['seqLen'])
+    ds_val = BilingualDataset(val, srcTokenizer, targetTokenizer, config['srcLang'], config['targetLang'], config['seqLen'])
+    ds_test = BilingualDataset(test, srcTokenizer, targetTokenizer, config['srcLang'], config['targetLang'], config['seqLen'])
+    
+    srcMaxLength = 0
+    targetMaxLength = 0
+    
+    for item in ds_raw:
+        srcID = srcTokenizer.encode(item['translation'][config['srcLang']]).ids
+        targetID = targetTokenizer.encode(item['translation'][config['targetLang']]).ids
+        srcMaxLength = max(srcMaxLength, len(srcID))
+        targetMaxLength = (max(targetMaxLength), len(targetID))
+        
+    train_dataloader = DataLoader(ds_train, batch_size=config['batchSize'], shuffle=True)
+    val_dataloader = DataLoader(ds_val, batch_size=1, shuffle=True)
+    test_dataloader = DataLoader(ds_test, batch_size=1, shuffle=False)
+    return train_dataloader, val_dataloader, test_dataloader, srcTokenizer, targetTokenizer
+
+def getModel(config, srcVocalLen, targetVocalLen):
+    model = buildTransformer(srcVocalLen, targetVocalLen, config["seqLen"], config["seqLen"], dimModel=config['dimModel'])
+    return model
