@@ -1,29 +1,32 @@
 import torch
 import torch.nn as nn
 from pathlib import Path
-from model.dataset import causalMask
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
 from tokenizers.trainers import WordLevelTrainer
 from tokenizers.pre_tokenizers import Whitespace
 
-def get_all_sentences(dataset, lang):
+def getAllSentences(dataset, lang):
     for item in dataset:
         yield item['translation'][lang]
 
-def get_or_build_tokenizer(config, dataset, lang):
+def getOrBuildTokenizer(config, dataset, lang):
     tokenizer_path = Path(config['tokenizerFile'].format(lang))
     if not Path.exists(tokenizer_path):
         tokenizer = Tokenizer(WordLevel(unk_token="[UNK]"))
         tokenizer.pre_tokenizer = Whitespace()
         trainer = WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"], min_frequency=2)
-        tokenizer.train_from_iterator(get_all_sentences(dataset, lang), trainer=trainer)
+        tokenizer.train_from_iterator(getAllSentences(dataset, lang), trainer=trainer)
         tokenizer.save(str(tokenizer_path))
     else:
         tokenizer = Tokenizer.from_file(str(tokenizer_path))
     return tokenizer
 
-def greedy_decode(model, src, src_mask, src_tokenizer, target_tokenizer, max_len, device):
+def causalMask(size):
+    # Define the causal mask function
+    return torch.triu(torch.ones(size, size), diagonal=1).bool()
+
+def greedyDecode(model, src, src_mask, src_tokenizer, target_tokenizer, max_len, device):
     idx_sos = target_tokenizer.token_to_id('[SOS]')
     idx_eos = target_tokenizer.token_to_id('[EOS]')
     
