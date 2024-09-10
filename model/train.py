@@ -125,3 +125,61 @@ def train(config):
                 'optimizer_state_dict': optimizer.state_dict(),
                 'globalStep': globalStep
             }, modelFileName)
+
+def runValidation(model, ds_val, srcTokenizer, targetTokenizer, maxLen, device, printMsg, globalStep, writer, numExamples = 2):
+    model.eval()
+    count = 0
+
+    sourceTexts = []
+    expected = []
+    predicted = []
+
+    try:
+        with os.popen('stty size', 'r') as console:
+            _, consoleWidth = console.read().split()
+            consoleWidth = int(consoleWidth)
+    except:
+        consoleWidth = 80
+
+    with torch.no_grad():
+        for batch in ds_val:
+            count += 1
+            encoderInput = batch['encoderInput'].to(device)
+            encoderMask = batch['encoderMask'].to(device)
+
+            assert encoderInput.size(0) == 1, "Batch Size must be 1 for validation"
+
+            modelOut = greedyDecode(model, encodeInput, encodeMask, srcTokenizer, targetTokenizer, maxLen, device)
+            sourceText = batch['srcText'][0]
+            targetText = batch['targetText'][0]
+            modelOutText = targetTokenizer.decode(modelOut.detach().cpu().numpy())
+
+            sourceTexts.append(sourceText)
+            expected.append(targetText)
+            predicted.append(modelOutText)
+
+            printMsg('-'*console_width)
+            printMsg(f"{SOURCE: ":>12}{sourceText})
+            printMsg(f"{TARGET: ":>12}{targetText})
+            printMsg(f"{PREDICTED: ":>12}{modelOutText})
+
+            if count == num_examples:
+                printMsg('-'*console_width)
+                break
+    
+    if writer:
+        metric = torchmetrics.CharErrorRate()
+        cer = metric(predicted, expected)
+        writer.add_scalar('validation cer', wer, globalStep)
+        writer.flush()
+
+        metric = torchmetrics.BLEUScore()
+        bleu = metric(predicted, expected)
+        writer.add_scalar('validation BLEU',bleu, globalStep)
+        writer.flush()
+
+
+if __name__ = '__main__':
+    warnings.filterwarnings('ignore')
+    config = get_config()
+    train_model(config)
