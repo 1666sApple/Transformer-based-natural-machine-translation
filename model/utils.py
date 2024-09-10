@@ -26,7 +26,7 @@ def causalMask(size):
     # Define the causal mask function
     return torch.triu(torch.ones(size, size), diagonal=1).bool()
 
-def greedyDecode(model, src, src_mask, src_tokenizer, target_tokenizer, max_len, device):
+def greedyDecode(model, src, src_mask, src_tokenizer, target_tokenizer, maxLen, device):
     idx_sos = target_tokenizer.token_to_id('[SOS]')
     idx_eos = target_tokenizer.token_to_id('[EOS]')
     
@@ -34,7 +34,7 @@ def greedyDecode(model, src, src_mask, src_tokenizer, target_tokenizer, max_len,
     decoder_input = torch.empty(1, 1).fill_(idx_sos).type_as(src).to(device)
     
     while True:
-        if decoder_input.size(1) == max_len:
+        if decoder_input.size(1) == maxLen:
             break
     
         decoder_mask = causalMask(decoder_input.size(1)).type_as(src_mask).to(device)
