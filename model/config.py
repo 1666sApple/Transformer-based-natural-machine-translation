@@ -9,7 +9,7 @@ def getConfig():
         "dimModel": 512,
         "srcData": 'opus_books',
         "srcLang": "en",
-        "targetLang": "fr",
+        "targetLang": "__",         ### add the language you want to translate
         "model_folder": "weights",
         "modelBaseName": "transformer",
         "preload": None,
