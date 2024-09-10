@@ -10,7 +10,7 @@ def getConfig():
         "srcData": 'opus_books',
         "srcLang": "en",
         "targetLang": "fr",
-        "model_folder": "weights",  # Changed to lowercase 'f'
+        "model_folder": "weights",
         "modelBaseName": "transformer",
         "preload": None,
         "tokenizerFile": "tokenizer{0}.json",
